@@ -130,7 +130,9 @@ class Extra(models.Model):
     """Adición con precio que el cliente puede sumar a una pizza o a un combo (queso extra, tocineta…)."""
     slug = models.SlugField('identificador', max_length=64, unique=True)
     name = models.CharField('nombre', max_length=80)
-    price = models.PositiveIntegerField('precio')
+    price = models.PositiveIntegerField('precio', help_text='Precio único, cuando no cambia por tamaño')
+    by_size = models.BooleanField('precio por tamaño', default=False,
+                                  help_text='Si está activo, se usan los precios por tamaño de abajo en vez del precio único')
     available = models.BooleanField('disponible', default=True)
     all_products = models.BooleanField('para todas las pizzas', default=True,
                                        help_text='Si está apagado, solo aplica a las pizzas elegidas abajo')
@@ -144,3 +146,19 @@ class Extra(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ExtraPrice(models.Model):
+    """Precio de una adición para un tamaño de pizza (solo si la adición tiene precio por tamaño)."""
+    extra = models.ForeignKey(Extra, on_delete=models.CASCADE, related_name='size_prices')
+    label = models.CharField('tamaño', max_length=40)
+    price = models.PositiveIntegerField('precio')
+    position = models.PositiveIntegerField('orden', default=0)
+
+    class Meta:
+        ordering = ['position', 'id']
+        verbose_name = 'precio por tamaño'
+        verbose_name_plural = 'precios por tamaño'
+
+    def __str__(self):
+        return f'{self.extra} {self.label} ${self.price}'

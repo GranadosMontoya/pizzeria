@@ -202,3 +202,5 @@ p { margin: 0; }
 .xlist { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
 .xlist summary { cursor: pointer; font-weight: 600; }
 .xchk { display: block; padding: 4px 0; }
+
+.xsizes { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 8px; }

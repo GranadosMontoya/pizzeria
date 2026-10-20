@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Business, Category, Extra, PizzaPrice, Product, ProductPrice, Size
+from .models import Business, Category, Extra, ExtraPrice, PizzaPrice, Product, ProductPrice, Size
 
 
 @admin.register(Business)
@@ -49,9 +49,15 @@ class PizzaPriceAdmin(admin.ModelAdmin):
     list_filter = ('tier',)
 
 
+class ExtraPriceInline(admin.TabularInline):
+    model = ExtraPrice
+    extra = 0
+
+
 @admin.register(Extra)
 class ExtraAdmin(admin.ModelAdmin):
-    list_display = ('name', 'price', 'available', 'position')
+    inlines = [ExtraPriceInline]
+    list_display = ('name', 'price', 'by_size', 'available', 'position')
     list_editable = ('price', 'available', 'position')
     prepopulated_fields = {'slug': ('name',)}
     filter_horizontal = ('products',)

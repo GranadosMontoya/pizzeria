@@ -36,7 +36,7 @@
     d.business = d.business || {};
     d.sizes = d.sizes || [];
     d.categories = d.categories || [];
-    d.extras = (d.extras || []).map(function (x) { x.avail = x.avail !== false; x.all = x.all !== false; x['for'] = Array.isArray(x['for']) ? x['for'] : []; return x; });
+    d.extras = (d.extras || []).map(function (x) { x.avail = x.avail !== false; x.all = x.all !== false; x['for'] = Array.isArray(x['for']) ? x['for'] : []; x.bySize = x.bySize === true; x.prices = Array.isArray(x.prices) ? x.prices : []; return x; });
     d.pizzaPrices = d.pizzaPrices || {};
     d.pizzaPrices.clasica = d.pizzaPrices.clasica || [];
     d.pizzaPrices.premium = d.pizzaPrices.premium || [];
@@ -163,11 +163,11 @@
       '<div class="crow"><input id="newcat" placeholder="Nueva categoría (ej. Calzones)" aria-label="Nueva categoría"><button class="btn primary" type="button" data-act="cadd">Agregar</button></div></div>';
   }
   function extrasTab() {
-    return '<div class="panel"><h3>Adiciones</h3><p class="hint">Extras con precio que el cliente puede sumar a una pizza o a un combo (queso extra, tocineta, borde relleno…). El precio es el mismo para todos los tamaños. Cada adición puede aplicar a todas las pizzas o solo a las que tú marques (por ejemplo, tocineta solo en las que ya la llevan). «Agotada» la oculta del menú sin borrarla.</p>' +
+    return '<div class="panel"><h3>Adiciones</h3><p class="hint">Extras con precio que el cliente puede sumar a una pizza o a un combo (queso extra, tocineta, borde relleno…). El precio puede ser único o cambiar por tamaño (marca o desmarca «Mismo precio para todos los tamaños»). Cada adición puede aplicar a todas las pizzas o solo a las que tú marques (por ejemplo, tocineta solo en las que ya la llevan). «Agotada» la oculta del menú sin borrarla.</p>' +
       draft.extras.map(function (x) {
         var id = esc(x.id);
         return '<div class="xitem"><div class="crow"><input data-xn="' + id + '" value="' + esc(x.name) + '" aria-label="Nombre de la adición">' +
-          '<span class="money"><i>$</i><input inputmode="numeric" autocomplete="off" data-xp="' + id + '" value="' + (x.price || '') + '" aria-label="Precio de ' + esc(x.name) + '"></span>' +
+          (x.bySize ? '<span class="hint">Precio por tamaño, abajo</span>' : '<span class="money"><i>$</i><input inputmode="numeric" autocomplete="off" data-xp="' + id + '" value="' + (x.price || '') + '" aria-label="Precio de ' + esc(x.name) + '"></span>') +
           '<div class="cmeta"><button class="btn small ghost" type="button" data-act="xtoggle" data-id="' + id + '">' + (x.avail ? 'Disponible' : 'Agotada') + '</button>' +
           '<button class="btn small ghost" type="button" data-act="xmv" data-dir="-1" data-id="' + id + '">Subir</button>' +
           '<button class="btn small ghost" type="button" data-act="xmv" data-dir="1" data-id="' + id + '">Bajar</button>' +
@@ -179,7 +179,15 @@
       '<button class="btn primary" type="button" data-act="xadd">Agregar</button></div></div>';
   }
   function xapplyHTML(x) {
-    var id = esc(x.id), h = '<div class="xapply"><label><input type="checkbox" data-xall="' + id + '"' + (x.all ? ' checked' : '') + '> Disponible en todas las pizzas</label>';
+    var id = esc(x.id), h = '<div class="xapply"><label><input type="checkbox" data-xsame="' + id + '"' + (x.bySize ? '' : ' checked') + '> Mismo precio para todos los tamaños</label>';
+    if (x.bySize) {
+      h += '<div class="xsizes">' + draft.sizes.map(function (sz) {
+        var r = x.prices.filter(function (k) { return k.label === sz.name; })[0];
+        return '<label class="pin">' + esc(sz.name) + '<span class="money"><i>$</i><input inputmode="numeric" autocomplete="off" data-xsp="' + id + '" data-size="' + esc(sz.name) +
+          '" value="' + (r && r.price ? r.price : '') + '" aria-label="Precio de ' + esc(x.name) + ' en ' + esc(sz.name) + '"></span></label>';
+      }).join('') + '</div><p class="hint">Deja vacío el tamaño donde no se ofrece.</p>';
+    }
+    h += '<label><input type="checkbox" data-xall="' + id + '"' + (x.all ? ' checked' : '') + '> Disponible en todas las pizzas</label>';
     if (!x.all) {
       var n = x['for'].length;
       h += '<details class="xlist"><summary>Elegir pizzas (' + n + ' marcada' + (n === 1 ? '' : 's') + ')</summary>' + draft.categories.filter(function (c) {
@@ -408,7 +416,7 @@
     'xadd': function () {
       var n = $('#newxn'), pr = $('#newxp'), name = n ? n.value.trim() : '', price = pr ? toInt(pr.value) : 0;
       if (!name || !(price > 0)) { ui.xMsg = 'Escribe el nombre y un precio mayor que cero.'; var m = $('#xmsg'); if (m) m.textContent = ui.xMsg; return; }
-      ui.xMsg = ''; draft.extras.push({ id: uid('x'), name: name, price: price, avail: true }); renderTab(); updateChrome();
+      ui.xMsg = ''; draft.extras.push({ id: uid('x'), name: name, price: price, avail: true, all: true, 'for': [], bySize: false, prices: [] }); renderTab(); updateChrome();
     },
     'xdel': function (t) { draft.extras = draft.extras.filter(function (x) { return x.id !== t.dataset.id; }); renderTab(); updateChrome(); },
     'xtoggle': function (t) {
@@ -458,6 +466,15 @@
       var x = ui.editing.p.prices[+d.i]; if (x) x[d.ep] = d.ep === 'price' ? toInt(t.value) : t.value;
       return;
     }
+    if (d.xsp) {
+      var xz = draft.extras.filter(function (k) { return k.id === d.xsp; })[0];
+      if (xz) {
+        var rz = xz.prices.filter(function (k) { return k.label === d.size; })[0], vz = toInt(t.value);
+        if (rz) rz.price = vz; else xz.prices.push({ label: d.size, price: vz });
+        updateChrome();
+      }
+      return;
+    }
     if (d.xn || d.xp) {
       var xx = draft.extras.filter(function (k) { return k.id === (d.xn || d.xp); })[0];
       if (xx) { if (d.xn) xx.name = t.value; else xx.price = toInt(t.value); updateChrome(); }
@@ -474,6 +491,15 @@
     if (d.avail) {
       var p = findP(d.avail);
       if (p) { p.avail = t.checked; var row = t.closest('.arow'); if (row) row.classList.toggle('out', !t.checked); updateChrome(); }
+      return;
+    }
+    if (d.xsame) {
+      var xs = draft.extras.filter(function (k) { return k.id === d.xsame; })[0];
+      if (xs) {
+        xs.bySize = !t.checked;
+        if (xs.bySize && !xs.prices.length && xs.price > 0) xs.prices = draft.sizes.map(function (sz) { return { label: sz.name, price: xs.price }; });   // arranca con el precio actual
+        renderTab(); updateChrome();
+      }
       return;
     }
     if (d.xall || d.xfor) {
@@ -519,6 +545,7 @@
       if (old && nu && nu !== old) {
         draft.products.forEach(function (p) { p.prices.forEach(function (x) { if (x.label === old) x.label = nu; }); });
         ['clasica', 'premium'].forEach(function (k) { draft.pizzaPrices[k].forEach(function (x) { if (x.label === old) x.label = nu; }); });
+        draft.extras.forEach(function (e) { e.prices.forEach(function (x) { if (x.label === old) x.label = nu; }); });
       }
       t.dataset.old = nu; draft.sizes[+d.sn].name = nu; updateChrome();
     }

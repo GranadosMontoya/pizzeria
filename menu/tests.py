@@ -166,3 +166,26 @@ class ExtrasTests(TestCase):
             mutar(d['extras'][0])
             with self.assertRaises(MenuValidationError):
                 clean_payload(d)
+
+
+class ExtrasPorTamanoTests(TestCase):
+    def setUp(self):
+        call_command('load_menu_data')
+
+    def test_precio_por_tamano_ida_y_vuelta(self):
+        d = initial_payload()
+        d['extras'][0].update(bySize=True, prices=[{'label': 'Personal', 'price': 3000}, {'label': 'Mediana', 'price': 4500},
+                                                   {'label': 'Grande', 'price': 0}])
+        out = save_menu_data(d)
+        q = out['extras'][0]
+        self.assertTrue(q['bySize'])
+        self.assertEqual(q['prices'], [{'label': 'Personal', 'price': 3000}, {'label': 'Mediana', 'price': 4500}])  # 0 = no se ofrece
+        d2 = deepcopy(out)
+        d2['extras'][0]['bySize'] = False
+        self.assertEqual(save_menu_data(d2)['extras'][0]['prices'], [])
+
+    def test_por_tamano_sin_precios_falla(self):
+        d = initial_payload()
+        d['extras'][0].update(bySize=True, prices=[{'label': 'Personal', 'price': 0}])
+        with self.assertRaises(MenuValidationError):
+            clean_payload(d)

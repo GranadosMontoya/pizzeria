@@ -103,7 +103,7 @@
   function unitPrice(l, label) {
     var p = byId[l.id]; if (!p) return null;
     var o = optsFor(p, l.fl || []);
-    for (var i = 0; i < o.length; i++) if (o[i].label === label) return o[i].price + exTotal(l.ex);
+    for (var i = 0; i < o.length; i++) if (o[i].label === label) return o[i].price + exTotal(l.ex, label);
     return null;
   }
   function lineTitle(l) {
@@ -117,15 +117,24 @@
       out.push('Pizza: ' + (l.fl.length > 1 ? '½ ' + flNames(l.fl).join(' + ½ ') : flNames(l.fl)[0]));
       if (p.includes.length) out.push('Incluye: ' + p.includes.join(', '));
     }
-    if (l.ex && l.ex.length) out.push('Adiciones: ' + l.ex.map(function (id) { return byEx[id].name + ' (+' + money(byEx[id].price) + ')'; }).join(', '));
+    if (l.ex && l.ex.length) out.push('Adiciones: ' + l.ex.map(function (id) { return byEx[id].name + ' (+' + money(exPrice(byEx[id], l.label)) + ')'; }).join(', '));
     return out;
   }
 
   /* ---------- Adiciones (extras con precio para pizzas y combos) ---------- */
-  var extras = (data.extras || []).filter(function (x) { return x.avail !== false && Number(x.price) > 0; });
+  var extras = (data.extras || []).filter(function (x) {
+    return x.avail !== false && (x.bySize ? (x.prices || []).some(function (r) { return Number(r.price) > 0; }) : Number(x.price) > 0);
+  });
   var byEx = {}, exOrder = {};
   extras.forEach(function (x, i) { byEx[x.id] = x; exOrder[x.id] = i; });
-  function exTotal(ids) { return (ids || []).reduce(function (s, id) { return s + (byEx[id] ? byEx[id].price : 0); }, 0); }
+  /* Precio de una adición según el tamaño de la pizza (0 = no se ofrece en ese tamaño). */
+  function exPrice(x, label) {
+    if (!x.bySize) return Number(x.price) || 0;
+    var a = x.prices || [];
+    for (var i = 0; i < a.length; i++) if (a[i].label === label) return Number(a[i].price) || 0;
+    return 0;
+  }
+  function exTotal(ids, label) { return (ids || []).reduce(function (s, id) { return s + (byEx[id] ? exPrice(byEx[id], label) : 0); }, 0); }
   /* Una adición aplica a todas las pizzas o solo a las que el dueño marcó (en un combo, a los sabores elegidos). */
   function exApplies(x, fl) { return x.all !== false || (x['for'] || []).some(function (id) { return (fl || []).indexOf(id) > -1; }); }
   function lineKey(l) { return flKey(l.fl) + ((l.ex && l.ex.length) ? '~' + l.ex.join('+') : ''); }
@@ -179,7 +188,7 @@
           if (isPizza(p)) id = fl[0];
         } else fl = [];
         var ex = Array.isArray(l.ex) ? l.ex : [];
-        if (ex.length && ((!isPizza(p) && !isCombo(p)) || !ex.every(function (x) { return byEx[x] && exApplies(byEx[x], fl); }))) return;   // adición que ya no existe
+        if (ex.length && ((!isPizza(p) && !isCombo(p)) || !ex.every(function (x) { return byEx[x] && exApplies(byEx[x], fl) && exPrice(byEx[x], l.label || '') > 0; }))) return;   // adición que ya no existe
         ex = ex.filter(function (v, i, a) { return a.indexOf(v) === i; }).sort(function (a, b) { return exOrder[a] - exOrder[b]; });
         var q = Math.min(MAXQ, parseInt(l.qty, 10) || 0);
         if (q > 0 && unitPrice({ id: id, fl: fl, ex: ex }, l.label || '') !== null) {
@@ -407,18 +416,18 @@
       sz = '<div class="opts sm" role="radiogroup" aria-label="Tamaño de ' + esc(lineTitle(l)) + '">' + o.map(function (x) {
         var on = x.label === l.label;
         return '<button type="button" role="radio" aria-checked="' + on + '" class="opt' + (on ? ' on' : '') + '" data-act="lsize" ' + a + ' data-to="' + esc(x.label) +
-          '" data-f="ls|' + k + '|' + esc(x.label) + '">' + esc(x.label) + ' · ' + money(x.price + exTotal(l.ex)) + '</button>';
+          '" data-f="ls|' + k + '|' + esc(x.label) + '">' + esc(x.label) + ' · ' + money(x.price + exTotal(l.ex, x.label)) + '</button>';
       }).join('') + '</div>';
     } else if (l.label) {
       sz = '<p class="l-sub">' + esc(l.label) + '</p>';
     }
     var exb = '';
-    var exs = extras.filter(function (x) { return exApplies(x, l.fl); });
+    var exs = extras.filter(function (x) { return exApplies(x, l.fl) && exPrice(x, l.label) > 0; });
     if (exs.length && (isPizza(p) || isCombo(p))) {
       exb = '<p class="l-sub">Adiciones</p><div class="opts sm" role="group" aria-label="Adiciones">' + exs.map(function (x) {
         var on = (l.ex || []).indexOf(x.id) > -1;
         return '<button type="button" class="opt' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-act="lextra" ' + a + ' data-x="' + esc(x.id) +
-          '" data-f="lx|' + k + '|' + esc(x.id) + '">' + (on ? '✓ ' : '+ ') + esc(x.name) + ' · ' + money(x.price) + '</button>';
+          '" data-f="lx|' + k + '|' + esc(x.id) + '">' + (on ? '✓ ' : '+ ') + esc(x.name) + ' · ' + money(exPrice(x, l.label)) + '</button>';
       }).join('') + '</div>';
     }
     var showNote = l.note || ui.notes[l.id + '|' + l.label + '|' + fk];
@@ -469,7 +478,7 @@
       '<input id="q" type="search" placeholder="Buscar pizza, bebida o ingrediente" autocomplete="off" aria-label="Buscar en el menú" value="' + esc(ui.q) + '"></label>' +
       '<nav class="chips" id="chips" aria-label="Categorías"></nav></div>' +
       '<div class="filters" id="filters"></div><main id="list"></main>' +
-      '<div class="cartbar" id="cartbar" hidden><button type="button" class="cartbar-btn" data-act="open-cart"><span class="cb-n" id="cb-n"></span><span class="cb-l">Ver mi pedido</span><span class="cb-t" id="cb-t"></span></button></div>' +
+      '<div class="cartbar" id="cartbar" hidden><button type="button" class="cartbar-btn" data-act="open-cart"><span class="cb-n" id="cb-n"></span><span class="cb-l">Verificar mi pedido</span><span class="cb-t" id="cb-t"></span></button></div>' +
       '<div class="scrim" id="scrim" data-act="close-cart" hidden></div>' +
       '<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-t" hidden>' +
       '<header class="sheet-h"><h2 id="sheet-t">Tu pedido</h2><button type="button" class="x" id="sheet-x" data-act="close-cart" aria-label="Cerrar pedido">×</button></header>' +
@@ -664,9 +673,11 @@
       var id = t.dataset.id, from = t.dataset.label, to = t.dataset.to, fl = t.dataset.fl || '';
       if (from === to) return;
       var i = find(id, from, fl); if (i < 0) return;
-      if (find(id, to, fl) > -1) { var l = cart.splice(i, 1)[0]; addLine(id, to, fl, l.qty, l.note); }   // ya existía ese tamaño: se juntan
-      else cart[i].label = to;                                                                         // si no, la línea conserva su lugar
-      cartChanged(touched(id, fl), 'ls|' + id + '|' + to + '|' + fl + '|' + to);
+      var l0 = cart[i], ex2 = (l0.ex || []).filter(function (x) { return exPrice(byEx[x], to) > 0; });   // adiciones que no existen en el nuevo tamaño se quitan
+      var nk = flKey(l0.fl) + (ex2.length ? '~' + ex2.join('+') : '');
+      if (find(id, to, nk) > -1) { cart.splice(i, 1); addLine(id, to, nk, l0.qty, l0.note); }       // ya existía ese tamaño: se juntan
+      else { l0.label = to; l0.ex = ex2; }                                                          // si no, la línea conserva su lugar
+      cartChanged(touched(id, fl), 'ls|' + id + '|' + to + '|' + nk + '|' + to);
     },
     'lextra': function (t) {
       var id = t.dataset.id, label = t.dataset.label, fk = t.dataset.fl || '', x = t.dataset.x;

@@ -367,7 +367,9 @@ window.MENU_DATA = {
       "price": 4000,
       "avail": true,
       "all": true,
-      "for": []
+      "for": [],
+      "bySize": false,
+      "prices": []
     },
     {
       "id": "tocineta",
@@ -377,7 +379,9 @@ window.MENU_DATA = {
       "all": false,
       "for": [
         "carnes"
-      ]
+      ],
+      "bySize": false,
+      "prices": []
     },
     {
       "id": "borde-queso",
@@ -385,7 +389,9 @@ window.MENU_DATA = {
       "price": 6000,
       "avail": true,
       "all": true,
-      "for": []
+      "for": [],
+      "bySize": false,
+      "prices": []
     }
   ]
 };

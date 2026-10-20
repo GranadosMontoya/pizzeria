@@ -3,7 +3,7 @@ import re
 
 from django.db import transaction
 
-from .models import Business, Category, Extra, PizzaPrice, Product, ProductPrice, Size
+from .models import Business, Category, Extra, ExtraPrice, PizzaPrice, Product, ProductPrice, Size
 
 ID_RE = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
 TAGS = ('veg', 'hot', 'fav')
@@ -54,7 +54,9 @@ def build_menu_data():
         'products': out_products,
         'pizzaPrices': pizza,
         'extras': [{'id': e.slug, 'name': e.name, 'price': e.price, 'avail': e.available, 'all': e.all_products,
-                    'for': [p.slug for p in e.products.all()]} for e in Extra.objects.prefetch_related('products')],
+                    'for': [p.slug for p in e.products.all()], 'bySize': e.by_size,
+                    'prices': [{'label': x.label, 'price': x.price} for x in e.size_prices.all()]}
+                   for e in Extra.objects.prefetch_related('products', 'size_prices')],
     }
 
 
@@ -197,8 +199,23 @@ def clean_payload(payload):
         xids.add(xid)
         name = _text(x.get('name'), 'Nombre de la adición', 80, required=True)
         only = [i for i in _list(x.get('for'), 'pizzas de la adición') if i in pids]   # ignora pizzas que ya no existen
-        extras.append({'id': xid, 'name': name, 'price': _money(x.get('price'), f'Precio de la adición «{name}»'),
-                       'avail': x.get('avail') is not False, 'all': x.get('all') is not False, 'for': list(dict.fromkeys(only))})
+        by_size = x.get('bySize') is True
+        size_prices = []
+        if by_size:
+            price = _money(x.get('price') or 0, f'Precio de la adición «{name}»', allow_zero=True)
+            for r in _list(x.get('prices'), f'precios por tamaño de «{name}»'):
+                r = _dict(r, 'precio por tamaño')
+                label = _text(r.get('label'), 'Tamaño del precio de la adición', 40, required=True)
+                value = _money(r.get('price') or 0, f'Precio de «{name}» en {label}', allow_zero=True)
+                if value > 0 and label not in [s['label'] for s in size_prices]:
+                    size_prices.append({'label': label, 'price': value})   # precio 0 = no se ofrece en ese tamaño
+            if not size_prices:
+                raise MenuValidationError(f'«{name}» necesita un precio en al menos un tamaño.')
+        else:
+            price = _money(x.get('price'), f'Precio de la adición «{name}»')
+        extras.append({'id': xid, 'name': name, 'price': price, 'avail': x.get('avail') is not False,
+                       'all': x.get('all') is not False, 'for': list(dict.fromkeys(only)),
+                       'bySize': by_size, 'prices': size_prices})
 
     return {'business': business, 'sizes': sizes, 'categories': cats, 'products': products, 'pizzaPrices': pizza, 'extras': extras}
 
@@ -240,8 +257,11 @@ def save_menu_data(payload):
     keep_x = []
     for i, x in enumerate(data['extras']):
         obj, _ = Extra.objects.update_or_create(slug=x['id'], defaults={
-            'name': x['name'], 'price': x['price'], 'available': x['avail'], 'all_products': x['all'], 'position': i})
+            'name': x['name'], 'price': x['price'], 'available': x['avail'], 'all_products': x['all'],
+            'by_size': x['bySize'], 'position': i})
         obj.products.set(Product.objects.filter(slug__in=x['for']))
+        obj.size_prices.all().delete()
+        ExtraPrice.objects.bulk_create([ExtraPrice(extra=obj, position=j, **r) for j, r in enumerate(x['prices'])])
         keep_x.append(obj.pk)
     Extra.objects.exclude(pk__in=keep_x).delete()
     return build_menu_data()
