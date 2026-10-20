@@ -1,0 +1,20 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Administrar menú</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="{% static 'panel/admin.css' %}">
+</head>
+<body>
+  <div id="app"></div>
+  <noscript><p style="padding:24px">Activa JavaScript para usar el panel.</p></noscript>
+  {{ config|json_script:"panel-config" }}
+  <script src="{% url 'menu:data' %}"></script>
+  <script src="{% static 'panel/admin.js' %}"></script>
+</body>
+</html>
