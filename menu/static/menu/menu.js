@@ -106,18 +106,19 @@
     for (var i = 0; i < o.length; i++) if (o[i].label === label) return o[i].price + exTotal(l.ex, label);
     return null;
   }
+  function baseUnit(l) { var u = unitPrice(l, l.label); return u === null ? 0 : u - exTotal(l.ex, l.label); }   // precio de la pizza sin adiciones
   function lineTitle(l) {
     var p = byId[l.id];
     if (isPizza(p) && l.fl.length > 1) return 'Pizza ½ ' + flNames(l.fl).join(' + ½ ');
     return p.name;
   }
-  function lineDetails(l) {
+  function lineDetails(l, noEx) {
     var p = byId[l.id], out = [];
     if (isCombo(p)) {
       out.push('Pizza: ' + (l.fl.length > 1 ? '½ ' + flNames(l.fl).join(' + ½ ') : flNames(l.fl)[0]));
       if (p.includes.length) out.push('Incluye: ' + p.includes.join(', '));
     }
-    if (l.ex && l.ex.length) out.push('Adiciones: ' + l.ex.map(function (id) { return byEx[id].name + ' (+' + money(exPrice(byEx[id], l.label)) + ')'; }).join(', '));
+    if (!noEx && l.ex && l.ex.length) out.push('Adiciones: ' + l.ex.map(function (id) { return byEx[id].name + ' (+' + money(exPrice(byEx[id], l.label)) + ')'; }).join(', '));
     return out;
   }
 
@@ -216,8 +217,16 @@
     if (form.pay === 'efectivo' && cash > 0) pay += ' (paga con ' + money(cash) + ')';
     L.push('*Pago:* ' + pay, '', '*Productos:*');
     cart.forEach(function (l) {
-      L.push('• ' + l.qty + ' × ' + lineTitle(l) + (l.label ? ' (' + l.label + ')' : '') + ' — ' + money(lineTotal(l)));
-      lineDetails(l).forEach(function (d) { L.push('   ' + d); });
+      var hasEx = l.ex && l.ex.length;
+      // Con adiciones, la línea muestra solo la pizza; las adiciones y el subtotal van aparte.
+      L.push('• ' + l.qty + ' × ' + lineTitle(l) + (l.label ? ' (' + l.label + ')' : '') + ' — ' + money(hasEx ? baseUnit(l) * l.qty : lineTotal(l)));
+      lineDetails(l, true).forEach(function (d) { L.push('   ' + d); });
+      if (hasEx) {
+        var xt = exTotal(l.ex, l.label);
+        L.push('   Adiciones: ' + l.ex.map(function (id) { return byEx[id].name + ' (+' + money(exPrice(byEx[id], l.label)) + ')'; }).join(', ') +
+          (l.qty > 1 ? ' × ' + l.qty + ' = +' + money(xt * l.qty) : ''));
+        L.push('   Subtotal: ' + money(lineTotal(l)));
+      }
       if (l.note) L.push('   _Nota: ' + l.note + '_');
     });
     L.push('', '*Total:* ' + money(cartTotal()) + (form.type === 'domicilio' ? ' _(domicilio no incluido)_' : ''));
@@ -424,7 +433,7 @@
       sz = '<div class="opts sm" role="radiogroup" aria-label="Tamaño de ' + esc(lineTitle(l)) + '">' + o.map(function (x) {
         var on = x.label === l.label;
         return '<button type="button" role="radio" aria-checked="' + on + '" class="opt' + (on ? ' on' : '') + '" data-act="lsize" ' + a + ' data-to="' + esc(x.label) +
-          '" data-f="ls|' + k + '|' + esc(x.label) + '">' + esc(x.label) + ' · ' + money(x.price + exTotal(l.ex, x.label)) + '</button>';
+          '" data-f="ls|' + k + '|' + esc(x.label) + '">' + esc(x.label) + ' · ' + money(x.price) + '</button>';   // solo el precio de la pizza; las adiciones van aparte (desglose)
       }).join('') + '</div>';
     } else if (l.label) {
       sz = '<p class="l-sub">' + esc(l.label) + '</p>';
