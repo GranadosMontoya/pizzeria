@@ -50,7 +50,7 @@
   var waNum = String(biz.whatsapp || '').replace(/\D/g, '');
   document.title = (biz.name ? biz.name + ' · ' : '') + 'Menú';
 
-  var ui = { cat: null, q: '', size: '', fVeg: false, fHot: false, sel: {}, open: false, tried: false, notes: {}, confirmClear: false, cfg: {} };
+  var ui = { cat: null, q: '', size: '', fVeg: false, fHot: false, sel: {}, open: false, tried: false, notes: {}, exOpen: '', confirmClear: false, cfg: {} };
   var cart = [];   // { id, label, fl: [sabores], qty, note }
   var form = { name: '', type: '', address: '', pay: '', cash: '', notes: '' };
   var KEY = 'pedido:' + (biz.name || 'menu');
@@ -137,6 +137,7 @@
   function exTotal(ids, label) { return (ids || []).reduce(function (s, id) { return s + (byEx[id] ? exPrice(byEx[id], label) : 0); }, 0); }
   /* Una adición aplica a todas las pizzas o solo a las que el dueño marcó (en un combo, a los sabores elegidos). */
   function exApplies(x, fl) { return x.all !== false || (x['for'] || []).some(function (id) { return (fl || []).indexOf(id) > -1; }); }
+  function exKey(l) { return l.id + '|' + flKey(l.fl); }
   function lineKey(l) { return flKey(l.fl) + ((l.ex && l.ex.length) ? '~' + l.ex.join('+') : ''); }
 
   /* ---------- Carrito ---------- */
@@ -424,11 +425,17 @@
     var exb = '';
     var exs = extras.filter(function (x) { return exApplies(x, l.fl) && exPrice(x, l.label) > 0; });
     if (exs.length && (isPizza(p) || isCombo(p))) {
-      exb = '<p class="l-sub">Adiciones</p><div class="opts sm" role="group" aria-label="Adiciones">' + exs.map(function (x) {
-        var on = (l.ex || []).indexOf(x.id) > -1;
-        return '<button type="button" class="opt' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-act="lextra" ' + a + ' data-x="' + esc(x.id) +
-          '" data-f="lx|' + k + '|' + esc(x.id) + '">' + (on ? '✓ ' : '+ ') + esc(x.name) + ' · ' + money(exPrice(x, l.label)) + '</button>';
-      }).join('') + '</div>';
+      // Las adiciones salen plegadas: solo un botón. Lo elegido ya se lista arriba («Adiciones: …»).
+      var xk = exKey(l), open = ui.exOpen === xk, nsel = (l.ex || []).length;
+      exb = '<button type="button" class="xbtn' + (open ? ' open' : '') + '" data-act="xopen" data-xk="' + esc(xk) + '" aria-expanded="' + open + '" data-f="xo|' + esc(xk) + '">' +
+        '<span>' + (nsel ? 'Adiciones · ' + nsel + (nsel === 1 ? ' elegida' : ' elegidas') : '+ Agregar adiciones') + '</span><span class="chev" aria-hidden="true">▾</span></button>';
+      if (open) {
+        exb += '<div class="xlist opts sm" role="group" aria-label="Adiciones">' + exs.map(function (x) {
+          var on = (l.ex || []).indexOf(x.id) > -1;
+          return '<button type="button" class="opt' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-act="lextra" ' + a + ' data-x="' + esc(x.id) +
+            '" data-f="lx|' + k + '|' + esc(x.id) + '">' + (on ? '✓ ' : '+ ') + esc(x.name) + ' · ' + money(exPrice(x, l.label)) + '</button>';
+        }).join('') + '</div>';
+      }
     }
     var showNote = l.note || ui.notes[l.id + '|' + l.label + '|' + fk];
     return '<li class="line"><div class="l-top"><h3>' + esc(lineTitle(l)) + '</h3><span class="l-price">' + money(lineTotal(l)) + '</span></div>' + det + sz + exb +
@@ -549,7 +556,7 @@
   }
 
   function openCart() {
-    ui.open = true; ui.tried = false; ui.confirmClear = false;
+    ui.open = true; ui.tried = false; ui.confirmClear = false; ui.exOpen = '';
     lastFocus = document.activeElement;
     renderSheet('none');
     $('#scrim').hidden = false; $('#sheet').hidden = false;
@@ -678,6 +685,12 @@
       if (find(id, to, nk) > -1) { cart.splice(i, 1); addLine(id, to, nk, l0.qty, l0.note); }       // ya existía ese tamaño: se juntan
       else { l0.label = to; l0.ex = ex2; }                                                          // si no, la línea conserva su lugar
       cartChanged(touched(id, fl), 'ls|' + id + '|' + to + '|' + nk + '|' + to);
+    },
+    'xopen': function (t) {
+      var xk = t.dataset.xk || '';
+      ui.exOpen = ui.exOpen === xk ? '' : xk;       // solo una línea con adiciones abiertas a la vez
+      renderSheet('xo|' + xk);
+      if (ui.exOpen) { var box = $('.xlist'); if (box && box.scrollIntoView) box.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); }
     },
     'lextra': function (t) {
       var id = t.dataset.id, label = t.dataset.label, fk = t.dataset.fl || '', x = t.dataset.x;

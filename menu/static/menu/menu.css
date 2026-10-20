@@ -246,3 +246,11 @@ select.in { appearance: auto; cursor: pointer; }
 /* Pasos numerados de pizzas y combos */
 .step-t { margin: 14px 0 6px; font-size: .875rem; font-weight: 700; }
 .btn.add { white-space: normal; text-align: center; line-height: 1.25; }
+
+/* Adiciones plegadas por defecto */
+.xbtn { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 46px; padding: 0 14px; border: 1px dashed var(--ink); border-radius: 12px; background: transparent; color: var(--ink); font-weight: 600; font-size: .9375rem; text-align: left; cursor: pointer; }
+.xbtn.open { border-style: solid; background: var(--surface-2); }
+.xbtn .chev { transition: transform .15s; }
+.xbtn.open .chev { transform: rotate(180deg); }
+.xlist { margin-top: -2px; }
+@media (prefers-reduced-motion: reduce) { .xbtn .chev { transition: none; } }
