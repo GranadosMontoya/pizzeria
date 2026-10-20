@@ -412,6 +412,13 @@
     var o = optsFor(p, l.fl);
     var labeled = o.filter(function (x) { return x.label; }).length > 1;
     var det = lineDetails(l).map(function (d) { return '<p class="l-sub">' + esc(d) + '</p>'; }).join('');
+    // Desglose del precio cuando hay adiciones: el precio de la línea ya las incluye.
+    var brk = '';
+    if (l.ex && l.ex.length) {
+      var bx = 0; o.forEach(function (x) { if (x.label === l.label) bx = x.price; });
+      var xt = exTotal(l.ex, l.label);
+      brk = '<p class="l-sub l-brk">' + (l.qty > 1 ? 'Por unidad · ' : '') + (isCombo(p) ? 'Combo ' : 'Pizza ') + money(bx) + ' + adiciones ' + money(xt) + ' = <strong>' + money(bx + xt) + '</strong></p>';
+    }
     var sz = '';
     if (labeled) {
       sz = '<div class="opts sm" role="radiogroup" aria-label="Tamaño de ' + esc(lineTitle(l)) + '">' + o.map(function (x) {
@@ -438,7 +445,7 @@
       }
     }
     var showNote = l.note || ui.notes[l.id + '|' + l.label + '|' + fk];
-    return '<li class="line"><div class="l-top"><h3>' + esc(lineTitle(l)) + '</h3><span class="l-price">' + money(lineTotal(l)) + '</span></div>' + det + sz + exb +
+    return '<li class="line"><div class="l-top"><h3>' + esc(lineTitle(l)) + '</h3><span class="l-price">' + money(lineTotal(l)) + '</span></div>' + det + brk + sz + exb +
       '<div class="l-row">' + stepperHTML(l.id, l.label, fk, l.qty) +
       '<button type="button" class="lnk" data-act="note" ' + a + ' data-f="nb|' + k + '">' + (showNote ? 'Quitar nota' : '+ Nota') + '</button>' +
       '<button type="button" class="lnk del" data-act="rm" ' + a + ' data-f="rm|' + k + '">Eliminar</button></div>' +

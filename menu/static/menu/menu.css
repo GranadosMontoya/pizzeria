@@ -254,3 +254,5 @@ select.in { appearance: auto; cursor: pointer; }
 .xbtn.open .chev { transform: rotate(180deg); }
 .xlist { margin-top: -2px; }
 @media (prefers-reduced-motion: reduce) { .xbtn .chev { transition: none; } }
+
+.l-brk strong { color: var(--ink); }
