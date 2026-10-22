@@ -50,10 +50,10 @@
   var waNum = String(biz.whatsapp || '').replace(/\D/g, '');
   document.title = (biz.name ? biz.name + ' · ' : '') + 'Menú';
 
-  var ui = { cat: null, q: '', size: '', fVeg: false, fHot: false, sel: {}, open: false, tried: false, notes: {}, exOpen: '', confirmClear: false, cfg: {} };
+  var ui = { cat: null, q: '', size: '', fVeg: false, fHot: false, sel: {}, open: false, tried: false, notes: {}, confirmClear: false, cfg: {} };
   var cart = [];   // { id, label, fl: [sabores], qty, note }
   var form = { name: '', type: '', address: '', pay: '', cash: '', notes: '' };
-  var KEY = 'pedido:' + (biz.name || 'menu');
+  var KEY = 'pedido:' + (location.pathname.split('/').filter(Boolean)[0] || biz.name || 'menu');   // un carrito por negocio
   var lastFocus = null, toastT = 0;
 
   /* ---------- Precios de pizza ----------
@@ -106,19 +106,18 @@
     for (var i = 0; i < o.length; i++) if (o[i].label === label) return o[i].price + exTotal(l.ex, label);
     return null;
   }
-  function baseUnit(l) { var u = unitPrice(l, l.label); return u === null ? 0 : u - exTotal(l.ex, l.label); }   // precio de la pizza sin adiciones
   function lineTitle(l) {
     var p = byId[l.id];
     if (isPizza(p) && l.fl.length > 1) return 'Pizza ½ ' + flNames(l.fl).join(' + ½ ');
     return p.name;
   }
-  function lineDetails(l, noEx) {
+  function lineDetails(l) {
     var p = byId[l.id], out = [];
     if (isCombo(p)) {
       out.push('Pizza: ' + (l.fl.length > 1 ? '½ ' + flNames(l.fl).join(' + ½ ') : flNames(l.fl)[0]));
       if (p.includes.length) out.push('Incluye: ' + p.includes.join(', '));
     }
-    if (!noEx && l.ex && l.ex.length) out.push('Adiciones: ' + l.ex.map(function (id) { return byEx[id].name + ' (+' + money(exPrice(byEx[id], l.label)) + ')'; }).join(', '));
+    if (l.ex && l.ex.length) out.push('Adiciones: ' + l.ex.map(function (id) { return byEx[id].name + ' (+' + money(exPrice(byEx[id], l.label)) + ')'; }).join(', '));
     return out;
   }
 
@@ -138,7 +137,6 @@
   function exTotal(ids, label) { return (ids || []).reduce(function (s, id) { return s + (byEx[id] ? exPrice(byEx[id], label) : 0); }, 0); }
   /* Una adición aplica a todas las pizzas o solo a las que el dueño marcó (en un combo, a los sabores elegidos). */
   function exApplies(x, fl) { return x.all !== false || (x['for'] || []).some(function (id) { return (fl || []).indexOf(id) > -1; }); }
-  function exKey(l) { return l.id + '|' + flKey(l.fl); }
   function lineKey(l) { return flKey(l.fl) + ((l.ex && l.ex.length) ? '~' + l.ex.join('+') : ''); }
 
   /* ---------- Carrito ---------- */
@@ -217,16 +215,8 @@
     if (form.pay === 'efectivo' && cash > 0) pay += ' (paga con ' + money(cash) + ')';
     L.push('*Pago:* ' + pay, '', '*Productos:*');
     cart.forEach(function (l) {
-      var hasEx = l.ex && l.ex.length;
-      // Con adiciones, la línea muestra solo la pizza; las adiciones y el subtotal van aparte.
-      L.push('• ' + l.qty + ' × ' + lineTitle(l) + (l.label ? ' (' + l.label + ')' : '') + ' — ' + money(hasEx ? baseUnit(l) * l.qty : lineTotal(l)));
-      lineDetails(l, true).forEach(function (d) { L.push('   ' + d); });
-      if (hasEx) {
-        var xt = exTotal(l.ex, l.label);
-        L.push('   Adiciones: ' + l.ex.map(function (id) { return byEx[id].name + ' (+' + money(exPrice(byEx[id], l.label)) + ')'; }).join(', ') +
-          (l.qty > 1 ? ' × ' + l.qty + ' = +' + money(xt * l.qty) : ''));
-        L.push('   Subtotal: ' + money(lineTotal(l)));
-      }
+      L.push('• ' + l.qty + ' × ' + lineTitle(l) + (l.label ? ' (' + l.label + ')' : '') + ' — ' + money(lineTotal(l)));
+      lineDetails(l).forEach(function (d) { L.push('   ' + d); });
       if (l.note) L.push('   _Nota: ' + l.note + '_');
     });
     L.push('', '*Total:* ' + money(cartTotal()) + (form.type === 'domicilio' ? ' _(domicilio no incluido)_' : ''));
@@ -421,19 +411,12 @@
     var o = optsFor(p, l.fl);
     var labeled = o.filter(function (x) { return x.label; }).length > 1;
     var det = lineDetails(l).map(function (d) { return '<p class="l-sub">' + esc(d) + '</p>'; }).join('');
-    // Desglose del precio cuando hay adiciones: el precio de la línea ya las incluye.
-    var brk = '';
-    if (l.ex && l.ex.length) {
-      var bx = 0; o.forEach(function (x) { if (x.label === l.label) bx = x.price; });
-      var xt = exTotal(l.ex, l.label);
-      brk = '<p class="l-sub l-brk">' + (l.qty > 1 ? 'Por unidad · ' : '') + (isCombo(p) ? 'Combo ' : 'Pizza ') + money(bx) + ' + adiciones ' + money(xt) + ' = <strong>' + money(bx + xt) + '</strong></p>';
-    }
     var sz = '';
     if (labeled) {
       sz = '<div class="opts sm" role="radiogroup" aria-label="Tamaño de ' + esc(lineTitle(l)) + '">' + o.map(function (x) {
         var on = x.label === l.label;
         return '<button type="button" role="radio" aria-checked="' + on + '" class="opt' + (on ? ' on' : '') + '" data-act="lsize" ' + a + ' data-to="' + esc(x.label) +
-          '" data-f="ls|' + k + '|' + esc(x.label) + '">' + esc(x.label) + ' · ' + money(x.price) + '</button>';   // solo el precio de la pizza; las adiciones van aparte (desglose)
+          '" data-f="ls|' + k + '|' + esc(x.label) + '">' + esc(x.label) + ' · ' + money(x.price + exTotal(l.ex, x.label)) + '</button>';
       }).join('') + '</div>';
     } else if (l.label) {
       sz = '<p class="l-sub">' + esc(l.label) + '</p>';
@@ -441,20 +424,14 @@
     var exb = '';
     var exs = extras.filter(function (x) { return exApplies(x, l.fl) && exPrice(x, l.label) > 0; });
     if (exs.length && (isPizza(p) || isCombo(p))) {
-      // Las adiciones salen plegadas: solo un botón. Lo elegido ya se lista arriba («Adiciones: …»).
-      var xk = exKey(l), open = ui.exOpen === xk, nsel = (l.ex || []).length;
-      exb = '<button type="button" class="xbtn' + (open ? ' open' : '') + '" data-act="xopen" data-xk="' + esc(xk) + '" aria-expanded="' + open + '" data-f="xo|' + esc(xk) + '">' +
-        '<span>' + (nsel ? 'Adiciones · ' + nsel + (nsel === 1 ? ' elegida' : ' elegidas') : '+ Agregar adiciones') + '</span><span class="chev" aria-hidden="true">▾</span></button>';
-      if (open) {
-        exb += '<div class="xlist opts sm" role="group" aria-label="Adiciones">' + exs.map(function (x) {
-          var on = (l.ex || []).indexOf(x.id) > -1;
-          return '<button type="button" class="opt' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-act="lextra" ' + a + ' data-x="' + esc(x.id) +
-            '" data-f="lx|' + k + '|' + esc(x.id) + '">' + (on ? '✓ ' : '+ ') + esc(x.name) + ' · ' + money(exPrice(x, l.label)) + '</button>';
-        }).join('') + '</div>';
-      }
+      exb = '<p class="l-sub">Adiciones</p><div class="opts sm" role="group" aria-label="Adiciones">' + exs.map(function (x) {
+        var on = (l.ex || []).indexOf(x.id) > -1;
+        return '<button type="button" class="opt' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-act="lextra" ' + a + ' data-x="' + esc(x.id) +
+          '" data-f="lx|' + k + '|' + esc(x.id) + '">' + (on ? '✓ ' : '+ ') + esc(x.name) + ' · ' + money(exPrice(x, l.label)) + '</button>';
+      }).join('') + '</div>';
     }
     var showNote = l.note || ui.notes[l.id + '|' + l.label + '|' + fk];
-    return '<li class="line"><div class="l-top"><h3>' + esc(lineTitle(l)) + '</h3><span class="l-price">' + money(lineTotal(l)) + '</span></div>' + det + brk + sz + exb +
+    return '<li class="line"><div class="l-top"><h3>' + esc(lineTitle(l)) + '</h3><span class="l-price">' + money(lineTotal(l)) + '</span></div>' + det + sz + exb +
       '<div class="l-row">' + stepperHTML(l.id, l.label, fk, l.qty) +
       '<button type="button" class="lnk" data-act="note" ' + a + ' data-f="nb|' + k + '">' + (showNote ? 'Quitar nota' : '+ Nota') + '</button>' +
       '<button type="button" class="lnk del" data-act="rm" ' + a + ' data-f="rm|' + k + '">Eliminar</button></div>' +
@@ -501,7 +478,7 @@
       '<input id="q" type="search" placeholder="Buscar pizza, bebida o ingrediente" autocomplete="off" aria-label="Buscar en el menú" value="' + esc(ui.q) + '"></label>' +
       '<nav class="chips" id="chips" aria-label="Categorías"></nav></div>' +
       '<div class="filters" id="filters"></div><main id="list"></main>' +
-      '<div class="cartbar" id="cartbar" hidden><button type="button" class="cartbar-btn" data-act="open-cart"><span class="cb-n" id="cb-n"></span><span class="cb-l">Verificar mi pedido</span><span class="cb-t" id="cb-t"></span></button></div>' +
+      '<div class="cartbar" id="cartbar" hidden><button type="button" class="cartbar-btn" data-act="open-cart"><span class="cb-n" id="cb-n"></span><span class="cb-l">Ver mi pedido</span><span class="cb-t" id="cb-t"></span></button></div>' +
       '<div class="scrim" id="scrim" data-act="close-cart" hidden></div>' +
       '<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-t" hidden>' +
       '<header class="sheet-h"><h2 id="sheet-t">Tu pedido</h2><button type="button" class="x" id="sheet-x" data-act="close-cart" aria-label="Cerrar pedido">×</button></header>' +
@@ -572,7 +549,7 @@
   }
 
   function openCart() {
-    ui.open = true; ui.tried = false; ui.confirmClear = false; ui.exOpen = '';
+    ui.open = true; ui.tried = false; ui.confirmClear = false;
     lastFocus = document.activeElement;
     renderSheet('none');
     $('#scrim').hidden = false; $('#sheet').hidden = false;
@@ -701,12 +678,6 @@
       if (find(id, to, nk) > -1) { cart.splice(i, 1); addLine(id, to, nk, l0.qty, l0.note); }       // ya existía ese tamaño: se juntan
       else { l0.label = to; l0.ex = ex2; }                                                          // si no, la línea conserva su lugar
       cartChanged(touched(id, fl), 'ls|' + id + '|' + to + '|' + nk + '|' + to);
-    },
-    'xopen': function (t) {
-      var xk = t.dataset.xk || '';
-      ui.exOpen = ui.exOpen === xk ? '' : xk;       // solo una línea con adiciones abiertas a la vez
-      renderSheet('xo|' + xk);
-      if (ui.exOpen) { var box = $('.xlist'); if (box && box.scrollIntoView) box.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); }
     },
     'lextra': function (t) {
       var id = t.dataset.id, label = t.dataset.label, fk = t.dataset.fl || '', x = t.dataset.x;

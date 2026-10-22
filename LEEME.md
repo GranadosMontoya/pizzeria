@@ -79,3 +79,25 @@ Luego `python manage.py collectstatic --noinput` y sirve con gunicorn/uwsgi
 - Guardar desde el panel reemplaza el menú completo con lo que ves en pantalla. Si dos personas
   editan a la vez, gana quien guarde último.
 - Si cambias el nombre de un tamaño en el panel, se actualiza en todos los precios.
+
+## Varios negocios en la misma base de datos
+
+Cada negocio tiene su propia dirección, su menú, sus precios y sus usuarios:
+
+- Menú público de cada negocio: `https://tudominio.com/<dirección>/` (por ejemplo `/pizzeria-a/`).
+- Panel: `https://tudominio.com/panel/` — cada usuario entra y llega directo al panel de **su** negocio.
+  Un usuario solo ve y cambia los datos de su negocio; el superusuario (tú) puede entrar a todos
+  desde `https://tudominio.com/<dirección>/panel/`.
+- Cada negocio comparte **solo su enlace** (`https://tudominio.com/<dirección>/`). La raíz `https://tudominio.com/` nunca muestra la lista de negocios al público: con un solo negocio lleva a su menú; con varios muestra «No encontramos ese menú» (solo el superusuario ve la lista).
+
+Crear un negocio nuevo (como superusuario, en `/admin/`):
+
+1. **Negocios → Añadir:** nombre y dirección (sin espacios ni tildes; `admin`, `panel` y `static` están reservadas).
+2. **Usuarios → Añadir:** crea el usuario del dueño y marca «Staff status» (no «Superuser status»).
+3. **Usuarios de cada negocio → Añadir:** une ese usuario con su negocio.
+4. El negocio empieza sin productos. El dueño crea categorías y productos desde el panel, o tú le cargas
+   el menú de ejemplo con `python manage.py load_menu_data --slug <dirección>` (en Docker: consola del contenedor).
+5. Datos del negocio (nombre, WhatsApp, horario) y tamaños: los edita el dueño en el panel.
+
+Notas: el carrito del cliente y el borrador del panel se guardan por negocio. Al borrar un negocio se borran
+solo sus datos; sus usuarios se conservan.

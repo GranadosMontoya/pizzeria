@@ -15,12 +15,12 @@ class MenuValidationError(ValueError):
     pass
 
 
-def build_menu_data():
-    """Arma el diccionario MENU_DATA con lo que hay en la base de datos."""
-    b = Business.load()
-    categories = list(Category.objects.all())
+def build_menu_data(business):
+    """Arma el diccionario MENU_DATA de un negocio con lo que hay en la base de datos."""
+    b = business
+    categories = list(Category.objects.filter(business=b))
     cat_type = {c.pk: c.type for c in categories}
-    products = Product.objects.select_related('category').prefetch_related('prices')
+    products = Product.objects.filter(business=b).select_related('category').prefetch_related('prices')
 
     out_products = []
     for p in products:
@@ -37,7 +37,7 @@ def build_menu_data():
         out_products.append(item)
 
     pizza = {t: [] for t in TIERS}
-    for x in PizzaPrice.objects.all():
+    for x in PizzaPrice.objects.filter(business=b):
         pizza[x.tier].append({'label': x.label, 'price': x.price})
 
     cats = []
@@ -49,14 +49,14 @@ def build_menu_data():
 
     return {
         'business': {'name': b.name, 'tagline': b.tagline, 'hours': b.hours, 'address': b.address, 'whatsapp': b.whatsapp},
-        'sizes': [{'name': s.name, 'detail': s.detail} for s in Size.objects.all()],
+        'sizes': [{'name': s.name, 'detail': s.detail} for s in Size.objects.filter(business=b)],
         'categories': cats,
         'products': out_products,
         'pizzaPrices': pizza,
         'extras': [{'id': e.slug, 'name': e.name, 'price': e.price, 'avail': e.available, 'all': e.all_products,
                     'for': [p.slug for p in e.products.all()], 'bySize': e.by_size,
                     'prices': [{'label': x.label, 'price': x.price} for x in e.size_prices.all()]}
-                   for e in Extra.objects.prefetch_related('products', 'size_prices')],
+                   for e in Extra.objects.filter(business=b).prefetch_related('products', 'size_prices')],
     }
 
 
@@ -221,24 +221,26 @@ def clean_payload(payload):
 
 
 @transaction.atomic
-def save_menu_data(payload):
-    """Guarda en la base de datos el menú completo que manda el panel (reemplaza lo anterior)."""
+def save_menu_data(business, payload):
+    """Guarda el menú completo de UN negocio (reemplaza lo anterior de ese negocio, nunca toca el de otros)."""
     data = clean_payload(payload)
 
-    Business.objects.update_or_create(pk=1, defaults=data['business'])
+    for k, v in data['business'].items():
+        setattr(business, k, v)
+    business.save(update_fields=list(data['business']))
 
-    Size.objects.all().delete()
-    Size.objects.bulk_create([Size(position=i, **s) for i, s in enumerate(data['sizes'])])
+    Size.objects.filter(business=business).delete()
+    Size.objects.bulk_create([Size(business=business, position=i, **s) for i, s in enumerate(data['sizes'])])
 
     cat_by_slug = {}
     for i, c in enumerate(data['categories']):
         obj, _ = Category.objects.update_or_create(
-            slug=c['id'], defaults={'name': c['name'], 'type': c['type'], 'position': i})
+            business=business, slug=c['id'], defaults={'name': c['name'], 'type': c['type'], 'position': i})
         cat_by_slug[c['id']] = obj
 
     keep = []
     for i, p in enumerate(data['products']):
-        obj, _ = Product.objects.update_or_create(slug=p['id'], defaults={
+        obj, _ = Product.objects.update_or_create(business=business, slug=p['id'], defaults={
             'category': cat_by_slug[p['cat']], 'name': p['name'], 'description': p['desc'],
             'tags': p['tags'], 'includes': p['includes'], 'available': p['avail'], 'position': i,
         })
@@ -246,22 +248,22 @@ def save_menu_data(payload):
         obj.prices.all().delete()
         ProductPrice.objects.bulk_create([ProductPrice(product=obj, position=j, **x) for j, x in enumerate(p['prices'])])
 
-    Product.objects.exclude(pk__in=keep).delete()
-    Category.objects.exclude(slug__in=cat_by_slug.keys()).delete()
+    Product.objects.filter(business=business).exclude(pk__in=keep).delete()
+    Category.objects.filter(business=business).exclude(slug__in=cat_by_slug.keys()).delete()
 
-    PizzaPrice.objects.all().delete()
+    PizzaPrice.objects.filter(business=business).delete()
     PizzaPrice.objects.bulk_create([
-        PizzaPrice(tier=tier, position=j, **x) for tier, rows in data['pizzaPrices'].items() for j, x in enumerate(rows)
+        PizzaPrice(business=business, tier=tier, position=j, **x) for tier, rows in data['pizzaPrices'].items() for j, x in enumerate(rows)
     ])
 
     keep_x = []
     for i, x in enumerate(data['extras']):
-        obj, _ = Extra.objects.update_or_create(slug=x['id'], defaults={
+        obj, _ = Extra.objects.update_or_create(business=business, slug=x['id'], defaults={
             'name': x['name'], 'price': x['price'], 'available': x['avail'], 'all_products': x['all'],
             'by_size': x['bySize'], 'position': i})
-        obj.products.set(Product.objects.filter(slug__in=x['for']))
+        obj.products.set(Product.objects.filter(business=business, slug__in=x['for']))
         obj.size_prices.all().delete()
         ExtraPrice.objects.bulk_create([ExtraPrice(extra=obj, position=j, **r) for j, r in enumerate(x['prices'])])
         keep_x.append(obj.pk)
-    Extra.objects.exclude(pk__in=keep_x).delete()
-    return build_menu_data()
+    Extra.objects.filter(business=business).exclude(pk__in=keep_x).delete()
+    return build_menu_data(business)

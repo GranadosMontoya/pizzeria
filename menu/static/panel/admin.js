@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var STORE = 'pizzeria-menu-borrador';
+  var STORE = 'pizzeria-menu-borrador:' + (location.pathname.split('/').filter(Boolean)[0] || '');   // un borrador por negocio
 
   /* ---------- Utilidades ---------- */
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -103,7 +103,7 @@
       '<div class="adm-actions"><a class="btn" href="' + esc(CFG.menuUrl) + '" target="_blank" rel="noopener">Ver menú</a>' +
       '<button class="btn primary" id="savebtn" type="button" data-act="save"' + (isDirty() && !ui.saving ? '' : ' disabled') + '>Guardar menú</button>' +
       '<button class="btn ghost" type="button" data-act="logout">Salir</button></div></div>' +
-      '<p class="howto">Sesión: <strong>' + esc(CFG.user) + '</strong>. Al pulsar «Guardar menú» los cambios se publican al instante. ' +
+      '<p class="howto">Negocio: <strong>' + esc(CFG.business) + '</strong> · Sesión: <strong>' + esc(CFG.user) + '</strong>. Al pulsar «Guardar menú» los cambios se publican al instante. ' +
       '<a href="' + esc(CFG.passwordUrl) + '">Cambiar mi contraseña</a></p>' +
       '<p class="msg ' + esc(ui.msgKind) + '" id="pubmsg" role="status">' + esc(ui.msg) + '</p>' +
       '<div class="tabs" role="tablist">' + [['productos', 'Productos'], ['pizzas', 'Precios de pizzas'], ['extras', 'Adiciones'], ['categorias', 'Categorías'], ['negocio', 'Negocio y tamaños']].map(function (t) {

@@ -1,30 +1,34 @@
 from django.contrib import admin
 
-from .models import Business, Category, Extra, ExtraPrice, PizzaPrice, Product, ProductPrice, Size
+from .models import (Business, BusinessMember, Category, Extra, ExtraPrice, PizzaPrice, Product, ProductPrice, Size)
 
 
 @admin.register(Business)
 class BusinessAdmin(admin.ModelAdmin):
-    list_display = ('name', 'hours', 'whatsapp')
+    list_display = ('name', 'slug', 'hours', 'whatsapp')
+    prepopulated_fields = {'slug': ('name',)}
+    search_fields = ('name', 'slug')
 
-    def has_add_permission(self, request):
-        return not Business.objects.exists()
 
-    def has_delete_permission(self, request, obj=None):
-        return False
+@admin.register(BusinessMember)
+class BusinessMemberAdmin(admin.ModelAdmin):
+    """Aquí se asigna cada usuario al negocio que administra."""
+    list_display = ('user', 'business')
+    list_filter = ('business',)
+    autocomplete_fields = ('user',)
+    search_fields = ('user__username',)
 
 
 @admin.register(Size)
 class SizeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'detail', 'position')
-    list_editable = ('position',)
+    list_display = ('name', 'business', 'detail', 'position')
+    list_filter = ('business',)
 
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'type', 'position')
-    list_editable = ('position',)
-    prepopulated_fields = {'slug': ('name',)}
+    list_display = ('name', 'business', 'type', 'position')
+    list_filter = ('business',)
 
 
 class ProductPriceInline(admin.TabularInline):
@@ -34,19 +38,16 @@ class ProductPriceInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'available', 'position')
-    list_filter = ('category', 'available')
-    list_editable = ('available', 'position')
+    list_display = ('name', 'business', 'category', 'available', 'position')
+    list_filter = ('business', 'category', 'available')
     search_fields = ('name', 'description')
-    prepopulated_fields = {'slug': ('name',)}
     inlines = [ProductPriceInline]
 
 
 @admin.register(PizzaPrice)
 class PizzaPriceAdmin(admin.ModelAdmin):
-    list_display = ('tier', 'label', 'price', 'position')
-    list_editable = ('price', 'position')
-    list_filter = ('tier',)
+    list_display = ('business', 'tier', 'label', 'price', 'position')
+    list_filter = ('business', 'tier')
 
 
 class ExtraPriceInline(admin.TabularInline):
@@ -57,7 +58,6 @@ class ExtraPriceInline(admin.TabularInline):
 @admin.register(Extra)
 class ExtraAdmin(admin.ModelAdmin):
     inlines = [ExtraPriceInline]
-    list_display = ('name', 'price', 'by_size', 'available', 'position')
-    list_editable = ('price', 'available', 'position')
-    prepopulated_fields = {'slug': ('name',)}
+    list_display = ('name', 'business', 'price', 'by_size', 'available', 'position')
+    list_filter = ('business',)
     filter_horizontal = ('products',)

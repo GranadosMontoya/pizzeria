@@ -1,4 +1,14 @@
+from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+
+# Direcciones que ya usa el sitio: un negocio no puede llamarse así.
+RESERVED_SLUGS = {'admin', 'panel', 'static', 'api', 'media'}
+
+
+def validate_business_slug(value):
+    if value.lower() in RESERVED_SLUGS:
+        raise ValidationError('Esa dirección está reservada. Elige otra.')
 
 
 class Business(models.Model):
@@ -9,28 +19,46 @@ class Business(models.Model):
     address = models.CharField('dirección', max_length=200, blank=True)
     whatsapp = models.CharField('WhatsApp', max_length=30, blank=True,
                                 help_text='Con indicativo de país y sin signos. Ej: 573001234567')
+    slug = models.SlugField('dirección', max_length=50, unique=True, validators=[validate_business_slug],
+                            help_text='Aparece en la dirección web: tudominio.com/<dirección>/ (sin espacios ni tildes)')
 
     class Meta:
-        verbose_name = 'datos del negocio'
-        verbose_name_plural = 'datos del negocio'
+        ordering = ['name']
+        verbose_name = 'negocio'
+        verbose_name_plural = 'negocios'
 
     def __str__(self):
         return self.name
 
-    @classmethod
-    def load(cls):
-        obj, _ = cls.objects.get_or_create(pk=1)
-        return obj
+    def save(self, *args, **kwargs):
+        self.slug = (self.slug or '').lower()
+        super().save(*args, **kwargs)
+
+
+
+class BusinessMember(models.Model):
+    """Une un usuario con el negocio que administra: solo ve y edita los datos de ese negocio."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='business_member')
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='members')
+
+    class Meta:
+        verbose_name = 'usuario del negocio'
+        verbose_name_plural = 'usuarios de cada negocio'
+
+    def __str__(self):
+        return f'{self.user} → {self.business}'
 
 
 class Size(models.Model):
     """Tamaños de pizza (Personal, Mediana, Grande…)."""
-    name = models.CharField('nombre', max_length=40, unique=True)
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='sizes')
+    name = models.CharField('nombre', max_length=40)
     detail = models.CharField('detalle', max_length=120, blank=True)
     position = models.PositiveIntegerField('orden', default=0)
 
     class Meta:
         ordering = ['position', 'id']
+        unique_together = [('business', 'name')]
         verbose_name = 'tamaño'
         verbose_name_plural = 'tamaños'
 
@@ -39,19 +67,21 @@ class Size(models.Model):
 
 
 class Category(models.Model):
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='categories')
     class Type(models.TextChoices):
         NORMAL = '', 'Normal (un precio o por tamaño)'
         CLASICA = 'clasica', 'Pizza clásica'
         PREMIUM = 'premium', 'Pizza premium'
         COMBO = 'combo', 'Combo (pizza + extras)'
 
-    slug = models.SlugField('identificador', max_length=64, unique=True)
+    slug = models.SlugField('identificador', max_length=64)
     name = models.CharField('nombre', max_length=120)
     type = models.CharField('tipo', max_length=10, choices=Type.choices, blank=True, default='')
     position = models.PositiveIntegerField('orden', default=0)
 
     class Meta:
         ordering = ['position', 'id']
+        unique_together = [('business', 'slug')]
         verbose_name = 'categoría'
         verbose_name_plural = 'categorías'
 
@@ -64,7 +94,8 @@ class Category(models.Model):
 
 
 class Product(models.Model):
-    slug = models.SlugField('identificador', max_length=64, unique=True)
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='products')
+    slug = models.SlugField('identificador', max_length=64)
     category = models.ForeignKey(Category, verbose_name='categoría', on_delete=models.CASCADE, related_name='products')
     name = models.CharField('nombre', max_length=120)
     description = models.TextField('descripción', blank=True)
@@ -77,6 +108,7 @@ class Product(models.Model):
 
     class Meta:
         ordering = ['position', 'id']
+        unique_together = [('business', 'slug')]
         verbose_name = 'producto'
         verbose_name_plural = 'productos'
 
@@ -107,6 +139,7 @@ class PizzaPrice(models.Model):
     premium + clásica = precio premium
     premium + premium = precio premium + (precio premium − precio clásica)
     """
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='pizza_prices')
     class Tier(models.TextChoices):
         CLASICA = 'clasica', 'Clásica'
         PREMIUM = 'premium', 'Premium'
@@ -118,7 +151,7 @@ class PizzaPrice(models.Model):
 
     class Meta:
         ordering = ['tier', 'position', 'id']
-        unique_together = [('tier', 'label')]
+        unique_together = [('business', 'tier', 'label')]
         verbose_name = 'precio de pizza'
         verbose_name_plural = 'precios de pizzas'
 
@@ -128,7 +161,8 @@ class PizzaPrice(models.Model):
 
 class Extra(models.Model):
     """Adición con precio que el cliente puede sumar a una pizza o a un combo (queso extra, tocineta…)."""
-    slug = models.SlugField('identificador', max_length=64, unique=True)
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='extras')
+    slug = models.SlugField('identificador', max_length=64)
     name = models.CharField('nombre', max_length=80)
     price = models.PositiveIntegerField('precio', help_text='Precio único, cuando no cambia por tamaño')
     by_size = models.BooleanField('precio por tamaño', default=False,
@@ -141,6 +175,7 @@ class Extra(models.Model):
 
     class Meta:
         ordering = ['position', 'id']
+        unique_together = [('business', 'slug')]
         verbose_name = 'adición'
         verbose_name_plural = 'adiciones'
 

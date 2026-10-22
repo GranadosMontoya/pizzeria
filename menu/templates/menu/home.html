@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% if panel %}Elige un negocio{% else %}Menús{% endif %}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }
+    a { display: block; padding: .9rem 1rem; margin: .5rem 0; border: 1px solid #ccc; border-radius: 10px; text-decoration: none; color: inherit; font-weight: 600; }
+    a:hover { background: #f4f4f4; }
+  </style>
+</head>
+<body>
+  <h1>{% if panel %}¿Qué negocio quieres administrar?{% else %}Elige un menú{% endif %}</h1>
+  {% for b in businesses %}
+    <a href="{% if panel %}{% url 'menu:panel' b.slug %}{% else %}{% url 'menu:index' b.slug %}{% endif %}">{{ b.name }}</a>
+  {% empty %}
+    <p>Aún no hay negocios creados.</p>
+  {% endfor %}
+</body>
+</html>
