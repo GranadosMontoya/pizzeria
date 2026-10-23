@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title>¿Buscas el menú de tu pizzería?</title>
+  <title>¿Buscas un menú?</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap">
@@ -12,7 +12,7 @@
     :root {
       --bg: #F2F3EF; --ink: #1B1D1A; --muted: #5C6159; --line: #D8DBD2; --surface: #FFFFFF;
       --tomato: #CF3420; --glow: rgba(207, 52, 32, .10);
-      --borde: #D9A04A; --queso: #F6D27A; --pep: #CF3420; --pep2: #E9644E; --albahaca: #2B6A3C; --sombra: rgba(20, 22, 18, .12);
+      --loza: #FFFFFF; --aro: #CF3420; --centro: #F2F3EF; --cubierto: #8A8F86; --sombra: rgba(20, 22, 18, .12);
       --f-display: 'Bricolage Grotesque', 'Arial Narrow', system-ui, sans-serif;
       --f-body: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
       color-scheme: light;
@@ -21,7 +21,7 @@
       :root {
         --bg: #151714; --ink: #F1F2EC; --muted: #A5AAA0; --line: #363A32; --surface: #1F221D;
         --tomato: #FF6A4D; --glow: rgba(255, 106, 77, .12);
-        --borde: #C98F35; --queso: #E7BE62; --pep: #E5523A; --pep2: #FF8468; --albahaca: #7FCB8F; --sombra: rgba(0, 0, 0, .45);
+        --loza: #2A2E27; --aro: #FF6A4D; --centro: #1F221D; --cubierto: #A5AAA0; --sombra: rgba(0, 0, 0, .45);
         color-scheme: dark;
       }
     }
@@ -33,40 +33,41 @@
       color: var(--ink); font-family: var(--f-body); line-height: 1.55; text-align: center;
     }
     main { width: 100%; max-width: 26rem; }
-    .pizza { display: block; margin: 0 auto 8px; max-width: 62vw; height: auto; overflow: visible; }
-    .borde { fill: var(--borde); } .queso { fill: var(--queso); } .pep { fill: var(--pep); } .pep2 { fill: var(--pep2); }
-    .albahaca { fill: var(--albahaca); } .sombra { fill: var(--sombra); }
-    .porcion { animation: flota 3.2s ease-in-out infinite; transform-origin: 100px 100px; }
-    @keyframes flota { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-5px) rotate(2deg); } }
+    .logo { display: block; margin: 0 auto 8px; max-width: 70vw; height: auto; overflow: visible; }
+    .loza { fill: var(--loza); stroke: var(--line); stroke-width: 2; }
+    .aro { fill: none; stroke: var(--aro); stroke-width: 3; }
+    .centro { fill: var(--centro); }
+    .cubierto { fill: var(--cubierto); }
+    .sombra { fill: var(--sombra); }
+    .plato { animation: flota 3.6s ease-in-out infinite; transform-origin: 120px 100px; }
+    @keyframes flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
     h1 { margin: 12px 0 10px; font-family: var(--f-display); font-weight: 800; font-size: clamp(1.75rem, 7vw, 2.25rem); line-height: 1.1; letter-spacing: -.01em; text-wrap: balance; }
     p { margin: 0 auto; max-width: 24rem; color: var(--muted); font-size: 1.0625rem; text-wrap: pretty; }
-    .pista {
-      display: inline-block; margin-top: 22px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px;
-      background: var(--surface); color: var(--ink); font-size: .9375rem; font-weight: 500;
-    }
-    .pista b { color: var(--tomato); font-weight: 600; }
-    @media (prefers-reduced-motion: reduce) { .porcion { animation: none; } }
+    @media (prefers-reduced-motion: reduce) { .plato { animation: none; } }
   </style>
 </head>
 <body>
   <main>
-    <svg class="pizza" viewBox="0 0 200 200" role="img" aria-label="Una pizza a la que le falta una porción" width="220" height="220">
-      <ellipse cx="100" cy="188" rx="70" ry="7" class="sombra"/>
-      <g>
-        <path d="M100.0 100.0 L181.6 133.0 A88 88 0 1 1 181.6 67.0 Z" class="borde"/>
-        <path d="M100.0 100.0 L170.5 128.5 A76 76 0 1 1 170.5 71.5 Z" class="queso"/>
-        <circle cx="125.0" cy="143.3" r="9" class="pep"/><circle cx="123.0" cy="141.3" r="2" class="pep2"/><circle cx="67.9" cy="145.9" r="9" class="pep"/><circle cx="65.9" cy="143.9" r="2" class="pep2"/><circle cx="54.7" cy="92.0" r="9" class="pep"/><circle cx="52.7" cy="90.0" r="2" class="pep2"/><circle cx="86.0" cy="47.8" r="9" class="pep"/><circle cx="84.0" cy="45.8" r="2" class="pep2"/><circle cx="133.4" cy="60.2" r="9" class="pep"/><circle cx="131.4" cy="58.2" r="2" class="pep2"/><circle cx="80.9" cy="111.0" r="9" class="pep"/><circle cx="78.9" cy="109.0" r="2" class="pep2"/>
-        <path d="M70 98c6-10 14-12 20-6-3 9-10 15-20 6z" class="albahaca"/>
+    <svg class="logo" viewBox="0 0 240 200" role="img" aria-label="Un plato con cubiertos" width="260" height="217">
+      <ellipse cx="120" cy="184" rx="78" ry="8" class="sombra"/>
+      <g class="plato">
+        <circle cx="120" cy="100" r="72" class="loza"/>
+        <circle cx="120" cy="100" r="50" class="aro"/>
+        <circle cx="120" cy="100" r="40" class="centro"/>
       </g>
-      <g class="porcion">
-        <path d="M134.0 110.0 L215.6 77.0 A88 88 0 0 1 215.6 143.0 Z" class="borde"/>
-        <path d="M134.0 110.0 L204.5 81.5 A76 76 0 0 1 204.5 138.5 Z" class="queso"/>
-        <circle cx="180.0" cy="110.0" r="8" class="pep"/><circle cx="178.0" cy="108.0" r="2" class="pep2"/>
+      <g class="cubierto" transform="translate(40 34)">
+        <rect x="-10.5" y="0" width="3" height="36" rx="1.5"/><rect x="-3.5" y="0" width="3" height="36" rx="1.5"/>
+        <rect x="3.5" y="0" width="3" height="36" rx="1.5"/><rect x="10.5" y="0" width="3" height="36" rx="1.5"/>
+        <path d="M-10.5 30H13.5V36C13.5 46 6 50 1.5 50C-3 50 -10.5 46 -10.5 36Z"/>
+        <rect x="-1" y="48" width="5" height="92" rx="2.5"/>
+      </g>
+      <g class="cubierto" transform="translate(200 34)">
+        <path d="M-3 0C9 3 12 24 9 56H-3Z"/>
+        <rect x="-3" y="54" width="12" height="86" rx="5"/>
       </g>
     </svg>
-    <h1>¿Buscas el menú de tu pizzería?</h1>
+    <h1>¿Buscas un menú?</h1>
     <p>Entra con el enlace o el código QR que te compartió el negocio y verás su menú al instante.</p>
-    <span class="pista">Cada pizzería tiene <b>su propio enlace</b></span>
   </main>
 </body>
 </html>
